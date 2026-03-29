@@ -10,7 +10,7 @@ import {
   StatusBar,
   Pressable,
   Animated,
-  Image, // 1️⃣ Import Image
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -64,7 +64,8 @@ export default function DirectReferralsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const THEME_GRADIENT = ['#7b0094ff', '#ff00d4ff'];
+  // 🎨 GOLD FOUNDRY GRADIENT
+  const THEME_GRADIENT = ['#FFD700', '#B8860B'];
 
   const fetchReferrals = async () => {
     if (!user?.account_number) return;
@@ -91,103 +92,109 @@ export default function DirectReferralsScreen() {
 
   return (
     <ScreenWrapper>
-      <StatusBar barStyle="light-content" />
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>My Network</Text>
-            <Text style={styles.headerSubtitle}>Direct Referrals</Text>
-            <LinearGradient
-              colors={THEME_GRADIENT}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerLine}
-            />
-          </View>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      {/* 🌑 Background: Deep Bronze/Black Gradient */}
+      <LinearGradient
+        colors={['#000000', '#1a1005', '#241808']}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.headerContainer}>
+              <Text style={styles.headerTitle}>My Network</Text>
+              <Text style={styles.headerSubtitle}>Direct Referrals</Text>
+              <LinearGradient
+                colors={THEME_GRADIENT}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.headerLine}
+              />
+            </View>
 
-          {loading && !refreshing ? (
-            <View style={styles.loaderContainer}>
-              <ActivityIndicator size="large" color="#ff00d4" />
-            </View>
-          ) : referrals.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.noReferrals}>No direct referrals found</Text>
-            </View>
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor="#ff00d4"
-                  colors={['#ff00d4', '#7b0094']}
-                  progressBackgroundColor="#1a1a1a"
-                />
-              }
-            >
-              {referrals.map((ref, index) => (
-                <ScaleCard
-                  key={ref.id}
-                  style={styles.cardContainer}
-                  onPress={() =>
-                    navigation.navigate('IndirectReferralsScreen', {
-                      accountNumber: ref.account_number,
-                      name: ref.username,
-                    })
-                  }
-                >
-                  <View style={styles.card}>
-                    {/* Left: User Info */}
-                    <View style={styles.userInfo}>
-                      
-                      {/* 3️⃣ Logic to show Image or Initial */}
-                      <View style={[
-                        styles.avatarPlaceholder, 
-                        ref.profileImage && { borderWidth: 0, backgroundColor: 'transparent' }
-                      ]}>
-                        {ref.profileImage ? (
-                          <Image 
-                            source={{ uri: ref.profileImage }} 
-                            style={styles.avatarImage} 
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <Text style={styles.avatarText}>
-                            {ref.username
-                              ? ref.username.charAt(0).toUpperCase()
-                              : 'U'}
+            {loading && !refreshing ? (
+              <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color="#FFD700" />
+              </View>
+            ) : referrals.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.noReferrals}>No direct referrals found</Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#FFD700"
+                    colors={['#FFD700', '#B8860B']}
+                    progressBackgroundColor="#1c140d"
+                  />
+                }
+              >
+                {referrals.map((ref, index) => (
+                  <ScaleCard
+                    key={ref.id}
+                    style={styles.cardContainer}
+                    onPress={() =>
+                      navigation.navigate('IndirectReferralsScreen', {
+                        accountNumber: ref.account_number,
+                        name: ref.username,
+                      })
+                    }
+                  >
+                    <View style={styles.card}>
+                      {/* Left: User Info */}
+                      <View style={styles.userInfo}>
+                        
+                        {/* 3️⃣ Logic to show Image or Initial */}
+                        <View style={[
+                          styles.avatarPlaceholder, 
+                          ref.profileImage && { borderWidth: 0, backgroundColor: 'transparent' }
+                        ]}>
+                          {ref.profileImage ? (
+                            <Image 
+                              source={{ uri: ref.profileImage }} 
+                              style={styles.avatarImage} 
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text style={styles.avatarText}>
+                              {ref.username
+                                ? ref.username.charAt(0).toUpperCase()
+                                : 'U'}
+                            </Text>
+                          )}
+                        </View>
+
+                        <View>
+                          <Text style={styles.username}>
+                            {ref.username || `Trader ${index + 1}`}
                           </Text>
-                        )}
-                      </View>
-
-                      <View>
-                        <Text style={styles.username}>
-                          {ref.username || `Trader ${index + 1}`}
-                        </Text>
-                        <View style={styles.statusBadge}>
-                          <Text style={styles.statusText}>VIEW NETWORK</Text>
+                          <View style={styles.statusBadge}>
+                            <Text style={styles.statusText}>VIEW NETWORK</Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
 
-                    {/* Right: Business Volume */}
-                    <View style={styles.businessInfo}>
-                      <Text style={styles.businessLabel}>Volume</Text>
-                      <Text style={styles.businessAmount}>
-                        ${ref.direct_business || 0}
-                      </Text>
+                      {/* Right: Business Volume */}
+                      <View style={styles.businessInfo}>
+                        <Text style={styles.businessLabel}>Volume</Text>
+                        <Text style={styles.businessAmount}>
+                          ${ref.direct_business || 0}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </ScaleCard>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      </SafeAreaView>
+                  </ScaleCard>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     </ScreenWrapper>
   );
 }
@@ -212,7 +219,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: ms(28),
     fontWeight: '900',
-    color: '#fff',
+    color: '#D4AF37', // Metallic Gold
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginTop: vs(15),
@@ -235,7 +242,7 @@ const styles = StyleSheet.create({
   /* Card */
   cardContainer: {
     marginBottom: vs(15),
-    shadowColor: '#ff00d4',
+    shadowColor: '#FFD700',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255, 215, 0, 0.1)', // Gold Border
   },
 
   /* Left Side */
@@ -261,20 +268,22 @@ const styles = StyleSheet.create({
     width: s(50),
     height: s(50),
     borderRadius: s(25),
-    backgroundColor: 'rgba(255, 0, 212, 0.1)',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: s(12),
     borderWidth: 1,
-    borderColor: 'rgba(255, 0, 212, 0.3)',
-    //overflow: 'hidden', // Ensures square images get clipped to circle
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    width: s(50),
+    height: s(50),
+    borderRadius: s(25),
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
   avatarText: {
-    color: '#ff00d4',
+    color: '#FFD700',
     fontSize: ms(16),
     fontWeight: '800',
   },
@@ -285,14 +294,16 @@ const styles = StyleSheet.create({
     marginBottom: vs(4),
   },
   statusBadge: {
-    backgroundColor: 'rgba(0, 230, 118, 0.1)',
+    backgroundColor: 'rgba(0, 255, 136, 0.1)', // Green tint for "View Network"
     paddingHorizontal: s(6),
     paddingVertical: vs(2),
     borderRadius: ms(4),
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   statusText: {
-    color: '#00ff84',
+    color: '#00ff88',
     fontSize: ms(9),
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -309,7 +320,7 @@ const styles = StyleSheet.create({
     marginBottom: vs(2),
   },
   businessAmount: {
-    color: '#fff',
+    color: '#FFD700',
     fontSize: ms(18),
     fontWeight: '800',
   },

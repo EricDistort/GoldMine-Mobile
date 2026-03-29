@@ -72,24 +72,29 @@ const PopButton = ({ onPress, children, style, disabled }: any) => {
 
 export default function DepositScreen() {
   const { user } = useUser();
-  
+
   // App Logic States
   const [walletAddress, setWalletAddress] = useState(''); // Company Wallet
   const [qrCodeUrl, setQrCodeUrl] = useState('');
-  
+
   // Input States
-  const [txHash, setTxHash] = useState(''); // This is the Sender Address Input
-  
+  // Note: We use 'txHash' state variable, but this functions as "Sender Address" in your UI
+  const [txHash, setTxHash] = useState('');
+
   // User Data States
-  const [fixedSenderAddress, setFixedSenderAddress] = useState<string | null>(null);
+  const [fixedSenderAddress, setFixedSenderAddress] = useState<string | null>(
+    null,
+  );
   const [deposits, setDeposits] = useState<any[]>([]);
   const [hasPending, setHasPending] = useState(false);
-  
+
   // UI States
   const [loading, setLoading] = useState(false);
   const [loadingDeposits, setLoadingDeposits] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [warningMessage, setWarningMessage] = useState('Loading instructions...');
+  const [warningMessage, setWarningMessage] = useState(
+    'Loading instructions...',
+  );
 
   // --- 🎨 GOLD FOUNDRY THEME ---
   const THEME_GRADIENT = ['#FFD700', '#B8860B']; // Gold -> Bronze
@@ -102,22 +107,24 @@ export default function DepositScreen() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           sender_wallet_address,
           deposit_info (
             wallet_address,
             qr_code_url
           )
-        `)
+        `,
+        )
         .eq('id', user.id)
         .single();
 
       if (!error && data) {
         // Handle Deposit Info (Company Wallet)
-        const info: any = Array.isArray(data.deposit_info) 
-          ? data.deposit_info[0] 
+        const info: any = Array.isArray(data.deposit_info)
+          ? data.deposit_info[0]
           : data.deposit_info;
-          
+
         if (info) {
           setWalletAddress(info.wallet_address);
           setQrCodeUrl(info.qr_code_url);
@@ -152,7 +159,7 @@ export default function DepositScreen() {
   const fetchDeposits = async () => {
     if (!user?.id) return;
     setLoadingDeposits(true);
-    
+
     const { data, error } = await supabase
       .from('deposits')
       .select('id, amount, status, created_at')
@@ -176,8 +183,8 @@ export default function DepositScreen() {
 
   const copyToClipboard = () => {
     if (walletAddress) {
-        Clipboard.setString(walletAddress);
-        Alert.alert('Copied', 'Wallet address copied to clipboard!');
+      Clipboard.setString(walletAddress);
+      Alert.alert('Copied', 'Wallet address copied to clipboard!');
     }
   };
 
@@ -187,25 +194,28 @@ export default function DepositScreen() {
     const addressToSubmit = fixedSenderAddress || txHash.trim();
 
     if (!addressToSubmit) {
-      Alert.alert('Error', 'Please enter the transaction hash / sender address');
+      Alert.alert('Error', 'Please enter your sender wallet address');
       return;
     }
 
     setLoading(true);
 
     try {
-      // 🚨 NEW STEP: Check for uniqueness if this is a first-time submission
+      // 🚨 CHECK UNIQUENESS: If first time, ensure address isn't taken by another user
       if (!fixedSenderAddress) {
-        const { data: existingUser, error: checkError } = await supabase
+        const { data: existingUser } = await supabase
           .from('users')
           .select('id')
           .eq('sender_wallet_address', addressToSubmit)
-          .maybeSingle(); // Returns null if not found, instead of error
+          .maybeSingle();
 
-        if (existingUser) {
-          Alert.alert('Failed', 'This wallet address is already linked to another account.');
+        if (existingUser && existingUser.id !== user.id) {
+          Alert.alert(
+            'Failed',
+            'This wallet address is already linked to another account.',
+          );
           setLoading(false);
-          return; // Stop execution here
+          return;
         }
       }
 
@@ -213,31 +223,25 @@ export default function DepositScreen() {
       const { error: depositError } = await supabase.from('deposits').insert([
         {
           user_id: user.id,
+          // 🚨 CRITICAL FIX: Sending to 'sender_wallet_address' column
+          sender_wallet_address: addressToSubmit,
+          // We also send to tx_hash just in case your old logic needs it
           tx_hash: addressToSubmit,
           wallet_address: walletAddress,
+          status: 'pending',
         },
       ]);
 
       if (depositError) throw depositError;
 
-      // 2. If this is the FIRST time, lock it in users table
+      // 2. If this is the FIRST time, we lock it locally for immediate UI feedback.
+      // The SQL Trigger will handle the actual database lock.
       if (!fixedSenderAddress) {
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ sender_wallet_address: addressToSubmit })
-          .eq('id', user.id);
-          
-        if (!updateError) {
-          setFixedSenderAddress(addressToSubmit);
-        } else {
-            // If update fails (e.g. slight race condition), alerting user but deposit went through
-            console.log("Error locking address:", updateError);
-        }
+        setFixedSenderAddress(addressToSubmit);
       }
 
       setShowSuccess(true);
-      fetchDeposits(); 
-
+      fetchDeposits();
     } catch (err: any) {
       Alert.alert('Error', err.message);
     } finally {
@@ -247,10 +251,14 @@ export default function DepositScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return '#00ff88'; // Green
-      case 'pending': return '#FFD700'; // Gold
-      case 'rejected': return '#ff4d4d'; // Red
-      default: return '#aaa';
+      case 'approved':
+        return '#00ff88'; // Green
+      case 'pending':
+        return '#FFD700'; // Gold
+      case 'rejected':
+        return '#ff4d4d'; // Red
+      default:
+        return '#aaa';
     }
   };
 
@@ -275,7 +283,9 @@ export default function DepositScreen() {
           },
         ]}
       >
-        <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+        <Text
+          style={[styles.statusText, { color: getStatusColor(item.status) }]}
+        >
           {item.status.toUpperCase()}
         </Text>
       </View>
@@ -285,117 +295,137 @@ export default function DepositScreen() {
   return (
     <ScreenWrapper>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      {/* 🎨 CHANGED: Gold Foundry Gradient */}
       <LinearGradient
-         colors={['#000000', '#1a1005', '#241808']}
-         style={{flex: 1}}
+        colors={['#000000', '#1a1005', '#241808']}
+        style={{ flex: 1 }}
       >
-      <SafeAreaView style={styles.safeArea}>
-        
-        {showSuccess && (
-          <View style={styles.successOverlay}>
-            <LottieView
-              source={require('../homeMedia/Success.json')}
-              autoPlay
-              loop={false}
-              onAnimationFinish={() => setShowSuccess(false)}
-              style={styles.successLottie}
-              resizeMode="contain"
-            />
-          </View>
-        )}
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.container}
-        >
-          <View style={styles.topSection}>
-            <Text style={styles.screenTitle}>Deposit Funds</Text>
-
-            <View style={styles.formContainer}>
-              
-              <View style={styles.qrRow}>
-                {qrCodeUrl ? (
-                  <View style={styles.qrWrapper}>
-                    <Image source={{ uri: qrCodeUrl }} style={styles.qrImage} resizeMode="contain" />
-                  </View>
-                ) : null}
-                <View style={styles.warningBox}>
-                  <Text style={styles.warningText}>⚠️ IMPORTANT</Text>
-                  <Text style={styles.warningDesc}>{warningMessage}</Text>
-                </View>
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <View style={styles.walletBox}>
-                  <Text style={styles.walletText} numberOfLines={1} ellipsizeMode="middle">
-                    {walletAddress || 'Loading...'}
-                  </Text>
-                  <PopButton onPress={copyToClipboard} style={{ width: 'auto' }}>
-                    <Text style={styles.copyText}>COPY</Text>
-                  </PopButton>
-                </View>
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[
-                      styles.input,
-                      fixedSenderAddress ? { opacity: 0.5, backgroundColor: 'rgba(255, 215, 0, 0.05)' } : {}
-                  ]}
-                  placeholder="Sender Wallet Address"
-                  value={txHash}
-                  onChangeText={setTxHash}
-                  autoCapitalize="none"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  editable={!fixedSenderAddress}
-                />
-              </View>
-
-              <PopButton
-                onPress={submitDeposit}
-                disabled={loading || hasPending}
-              >
-                <LinearGradient
-                  colors={hasPending ? DISABLED_GRADIENT : THEME_GRADIENT}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.submitBtn}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#000" size="small" />
-                  ) : (
-                    <Text style={[styles.submitBtnText, hasPending ? {color: '#888'} : {color: '#000'}]}>
-                      {hasPending ? 'Pending Deposit Active' : 'Confirm Deposit'}
-                    </Text>
-                  )}
-                </LinearGradient>
-              </PopButton>
-
-            </View>
-          </View>
-
-          <View style={styles.historyContainer}>
-            <Text style={styles.historyHeader}>Recent History</Text>
-            {loadingDeposits ? (
-              <ActivityIndicator color="#FFD700" style={{ marginTop: 20 }} />
-            ) : (
-              <FlatList
-                data={deposits}
-                keyExtractor={item => item.id.toString()}
-                renderItem={renderHistoryItem}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={
-                  <Text style={styles.emptyText}>No deposit history found</Text>
-                }
+        <SafeAreaView style={styles.safeArea}>
+          {showSuccess && (
+            <View style={styles.successOverlay}>
+              <LottieView
+                source={require('../homeMedia/Success.json')}
+                autoPlay
+                loop={false}
+                onAnimationFinish={() => setShowSuccess(false)}
+                style={styles.successLottie}
+                resizeMode="contain"
               />
-            )}
-          </View>
+            </View>
+          )}
 
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.container}
+          >
+            <View style={styles.topSection}>
+              <Text style={styles.screenTitle}>Deposit Funds</Text>
+
+              <View style={styles.formContainer}>
+                <View style={styles.qrRow}>
+                  {qrCodeUrl ? (
+                    <View style={styles.qrWrapper}>
+                      <Image
+                        source={{ uri: qrCodeUrl }}
+                        style={styles.qrImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  ) : null}
+                  <View style={styles.warningBox}>
+                    <Text style={styles.warningText}>⚠️ IMPORTANT</Text>
+                    <Text style={styles.warningDesc}>{warningMessage}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <View style={styles.walletBox}>
+                    <Text
+                      style={styles.walletText}
+                      numberOfLines={1}
+                      ellipsizeMode="middle"
+                    >
+                      {walletAddress || 'Loading...'}
+                    </Text>
+                    <PopButton
+                      onPress={copyToClipboard}
+                      style={{ width: 'auto' }}
+                    >
+                      <Text style={styles.copyText}>COPY</Text>
+                    </PopButton>
+                  </View>
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      fixedSenderAddress
+                        ? {
+                            opacity: 0.5,
+                            backgroundColor: 'rgba(255, 215, 0, 0.05)',
+                          }
+                        : {},
+                    ]}
+                    placeholder="Sender Wallet Address"
+                    value={txHash}
+                    onChangeText={setTxHash}
+                    autoCapitalize="none"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    editable={!fixedSenderAddress}
+                  />
+                </View>
+
+                <PopButton
+                  onPress={submitDeposit}
+                  disabled={loading || hasPending}
+                >
+                  <LinearGradient
+                    colors={hasPending ? DISABLED_GRADIENT : THEME_GRADIENT}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.submitBtn}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#000" size="small" />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.submitBtnText,
+                          hasPending ? { color: '#888' } : { color: '#000' },
+                        ]}
+                      >
+                        {hasPending
+                          ? 'Pending Deposit Active'
+                          : 'Confirm Deposit'}
+                      </Text>
+                    )}
+                  </LinearGradient>
+                </PopButton>
+              </View>
+            </View>
+
+            <View style={styles.historyContainer}>
+              <Text style={styles.historyHeader}>Recent History</Text>
+              {loadingDeposits ? (
+                <ActivityIndicator color="#FFD700" style={{ marginTop: 20 }} />
+              ) : (
+                <FlatList
+                  data={deposits}
+                  keyExtractor={item => item.id.toString()}
+                  renderItem={renderHistoryItem}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  ListEmptyComponent={
+                    <Text style={styles.emptyText}>
+                      No deposit history found
+                    </Text>
+                  }
+                />
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </LinearGradient>
     </ScreenWrapper>
   );
@@ -417,8 +447,6 @@ const styles = StyleSheet.create({
   },
   successLottie: { width: s(300), height: s(300) },
   topSection: { marginBottom: vs(20) },
-  
-  // 🎨 CHANGED: Title Color
   screenTitle: {
     fontSize: ms(24),
     fontWeight: '800',
@@ -427,8 +455,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: vs(15),
   },
-  
-  // 🎨 CHANGED: Card Background/Border
   formContainer: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: ms(20),
@@ -447,14 +473,18 @@ const styles = StyleSheet.create({
   },
   qrImage: { width: '100%', height: '100%' },
   warningBox: { flex: 1, justifyContent: 'center' },
-  
-  // 🎨 CHANGED: Warning Text Color
-  warningText: { color: '#FFD700', fontWeight: '700', fontSize: ms(12), marginBottom: vs(2) },
-  warningDesc: { color: 'rgba(255,255,255,0.6)', fontSize: ms(11), lineHeight: ms(15) },
-  
+  warningText: {
+    color: '#FFD700',
+    fontWeight: '700',
+    fontSize: ms(12),
+    marginBottom: vs(2),
+  },
+  warningDesc: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: ms(11),
+    lineHeight: ms(15),
+  },
   inputWrapper: { marginBottom: vs(12) },
-  
-  // 🎨 CHANGED: Wallet Box Colors
   walletBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -465,9 +495,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 215, 0, 0.3)', // Gold Border
   },
-  walletText: { color: '#FFD700', flex: 1, fontSize: ms(13), marginRight: s(10) },
-  
-  // 🎨 CHANGED: Copy Button Colors
+  walletText: {
+    color: '#FFD700',
+    flex: 1,
+    fontSize: ms(13),
+    marginRight: s(10),
+  },
   copyText: {
     color: '#FFD700',
     fontWeight: '700',
@@ -479,8 +512,6 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#FFD700',
   },
-  
-  // 🎨 CHANGED: Input Colors
   input: {
     backgroundColor: '#000',
     borderRadius: ms(20),
@@ -499,14 +530,20 @@ const styles = StyleSheet.create({
     marginTop: vs(5),
     width: '100%',
   },
-  submitBtnText: { color: '#000', fontSize: ms(15), fontWeight: 'bold', letterSpacing: 0.5 },
-  
+  submitBtnText: {
+    color: '#000',
+    fontSize: ms(15),
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
   historyContainer: { flex: 1 },
-  // 🎨 CHANGED: Header Color
-  historyHeader: { fontSize: ms(18), fontWeight: '700', color: '#FFD700', marginBottom: vs(10) },
+  historyHeader: {
+    fontSize: ms(18),
+    fontWeight: '700',
+    color: '#FFD700',
+    marginBottom: vs(10),
+  },
   listContent: { paddingBottom: vs(200) },
-  
-  // 🎨 CHANGED: History Card Colors
   historyCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -519,9 +556,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 215, 0, 0.1)',
   },
   historyLeft: { flexDirection: 'column' },
-  historyAmount: { color: '#fff', fontSize: ms(16), fontWeight: 'bold', marginBottom: vs(2) },
+  historyAmount: {
+    color: '#fff',
+    fontSize: ms(16),
+    fontWeight: 'bold',
+    marginBottom: vs(2),
+  },
   historyDate: { color: 'rgba(255,255,255,0.4)', fontSize: ms(11) },
-  
   statusBadge: {
     paddingVertical: vs(4),
     paddingHorizontal: s(8),
@@ -529,5 +570,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusText: { fontSize: ms(10), fontWeight: '800' },
-  emptyText: { color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: vs(20), fontSize: ms(14) },
+  emptyText: {
+    color: 'rgba(255,255,255,0.3)',
+    textAlign: 'center',
+    marginTop: vs(20),
+    fontSize: ms(14),
+  },
 });
